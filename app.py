@@ -1,7 +1,8 @@
-import streamlit as st
-import pickle
 import numpy as np
 import pandas as pd
+import joblib
+import streamlit as st
+
 
 # ===============================
 # PAGE CONFIG
@@ -13,18 +14,14 @@ st.set_page_config(
 )
 
 # ===============================
-# LOAD MODEL ARTIFACTS
+# LOAD MODEL ARTIFACTS (SAFE)
 # ===============================
 @st.cache_resource
 def load_artifacts():
-    with open("fraud_model.pkl", "rb") as f:
-        model = pickle.load(f)
-    with open("scaler.pkl", "rb") as f:
-        scaler = pickle.load(f)
-    with open("feature_columns.pkl", "rb") as f:
-        feature_cols = pickle.load(f)
-    with open("threshold.pkl", "rb") as f:
-        threshold = pickle.load(f)
+    model = joblib.load("fraud_model.pkl")
+    scaler = joblib.load("scaler.pkl")
+    feature_cols = joblib.load("feature_columns.pkl")
+    threshold = joblib.load("threshold.pkl")
     return model, scaler, feature_cols, threshold
 
 model, scaler, feature_cols, THRESHOLD = load_artifacts()
