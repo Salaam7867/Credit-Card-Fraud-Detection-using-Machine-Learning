@@ -66,7 +66,7 @@ Threshold selected to minimize **total expected cost**, not just error rate.
 ---
 
 ## 🚀 Deployment (Planned)
-
+- Streamlit link: https://credit-card-fraud-detection-using-machine-learning-786.streamlit.app/
 - Model artifacts saved (`.pkl`)
 - Streamlit app for real-time fraud prediction
 - Deployment planned using Streamlit Cloud
