@@ -1,15 +1,19 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 import pickle
 
 # ===============================
 # PAGE CONFIG
 # ===============================
 st.set_page_config(
-    page_title="Bank Fraud Risk Dashboard",
+    page_title="Credit Card Fraud Detection",
     page_icon="💳",
-    layout="wide"
+    layout="centered"
 )
+
+st.title("💳 Credit Card Fraud Detection System")
+st.caption("Real-time fraud risk assessment using Machine Learning")
 
 # ===============================
 # LOAD MODEL ARTIFACTS
@@ -29,118 +33,111 @@ def load_artifacts():
 model, scaler, FEATURE_COLS, THRESHOLD = load_artifacts()
 
 # ===============================
-# HEADER
+# BUSINESS CONTEXT
 # ===============================
-st.title("💳 Credit Card Fraud Risk System")
-st.caption("Real-time fraud risk assessment used by banks")
+with st.expander("📌 Business Context", expanded=True):
+    st.write("""
+Banks must detect fraudulent transactions early **without blocking genuine customers**.
 
-st.info(
-    "Banks must detect fraudulent transactions early while minimizing false alerts that "
-    "annoy genuine customers."
-)
-
-# ===============================
-# LAYOUT
-# ===============================
-left, right = st.columns([1, 1])
+This system:
+- Prioritizes **high fraud recall**
+- Uses **probability thresholding**
+- Balances **bank loss vs customer friction**
+""")
 
 # ===============================
-# INPUT PANEL (BUSINESS FRIENDLY)
+# QUICK DEMO (FOR RECRUITERS)
 # ===============================
-with left:
-    st.subheader("🧾 Transaction Details")
+st.subheader("⚡ Quick Demo")
 
-    amount = st.number_input(
-        "Transaction Amount (₹)",
-        min_value=1.0,
-        value=2500.0,
-        step=100.0
-    )
+col1, col2 = st.columns(2)
 
-    hour = st.slider(
-        "Transaction Hour",
-        0, 23, 14
-    )
+def normal_transaction():
+    return {
+        "Amount": 45,
+        "Time": 45000,
+        "is_high_amount": 0,
+        "log_amount": np.log1p(45)
+    }
 
-    international = st.selectbox(
-        "International Transaction?",
-        ["No", "Yes"]
-    )
+def high_risk_transaction():
+    return {
+        "Amount": 2500,
+        "Time": 200,
+        "is_high_amount": 1,
+        "log_amount": np.log1p(2500)
+    }
 
-    customer_risk = st.selectbox(
-        "Customer Risk Profile",
-        ["Low", "Medium", "High"]
-    )
+demo_input = None
 
-    predict_btn = st.button("🔍 Assess Fraud Risk")
+with col1:
+    if st.button("🟢 Simulate Normal Transaction"):
+        demo_input = normal_transaction()
 
-# ===============================
-# FEATURE MAPPING (IMPORTANT)
-# ===============================
-def build_model_input():
-    """
-    Converts business inputs → model-ready feature vector
-    PCA features are auto-filled (real systems do this)
-    """
-
-    data = dict.fromkeys(FEATURE_COLS, 0.0)
-
-    # Core features
-    data["Amount"] = amount
-    data["Time"] = hour * 3600  # convert hour → seconds
-
-    # Derived logic
-    data["log_amount"] = np.log1p(amount)
-    data["is_high_amount"] = int(amount > 5000)
-
-    # Risk heuristics
-    if international == "Yes":
-        data["V1"] = -2.5
-        data["V2"] = 2.0
-
-    if customer_risk == "High":
-        data["V3"] = -3.0
-    elif customer_risk == "Medium":
-        data["V3"] = -1.5
-
-    return np.array([data[col] for col in FEATURE_COLS]).reshape(1, -1)
+with col2:
+    if st.button("🔴 Simulate High-Risk Transaction"):
+        demo_input = high_risk_transaction()
 
 # ===============================
-# PREDICTION + DECISION
+# MANUAL INPUT (REALISTIC)
 # ===============================
-with right:
-    st.subheader("📊 Fraud Risk Assessment")
+st.subheader("🧾 Transaction Details")
 
-    if predict_btn:
-        X = build_model_input()
-        X_scaled = scaler.transform(X)
+amount = st.number_input("Transaction Amount ($)", min_value=0.0, value=120.0)
+time = st.number_input("Transaction Time (seconds since first transaction)", min_value=0.0, value=40000.0)
 
-        prob = model.predict_proba(X_scaled)[0][1]
-        decision = prob >= THRESHOLD
-
-        st.metric(
-            "Fraud Probability",
-            f"{prob:.2%}"
-        )
-
-        if decision:
-            st.error("🟥 HIGH RISK — BLOCK TRANSACTION")
-            st.write(
-                "⚠️ Recommended Action: **Block transaction and notify customer**"
-            )
-        else:
-            st.success("🟢 LOW RISK — APPROVE TRANSACTION")
-            st.write(
-                "✅ Recommended Action: **Approve transaction**"
-            )
-
-        st.caption(
-            f"Decision threshold set at {THRESHOLD:.2f} to balance bank loss vs customer friction."
-        )
+log_amount = np.log1p(amount)
+is_high_amount = int(amount > 2000)
 
 # ===============================
-# ADVANCED (OPTIONAL)
+# BUILD MODEL INPUT (HIDDEN PCA)
 # ===============================
-with st.expander("⚙️ Advanced: Model Internals"):
-    st.write("PCA-based features and scaling are handled internally.")
-    st.write("This abstraction mirrors real banking systems.")
+def build_model_input(amount, time, log_amount, is_high_amount):
+    data = pd.DataFrame(columns=FEATURE_COLS)
+    data.loc[0] = 0  # initialize all PCA features as 0
+
+    # Inject engineered features
+    if "Amount" in FEATURE_COLS:
+        data.at[0, "Amount"] = amount
+    if "Time" in FEATURE_COLS:
+        data.at[0, "Time"] = time
+    if "log_amount" in FEATURE_COLS:
+        data.at[0, "log_amount"] = log_amount
+    if "is_high_amount" in FEATURE_COLS:
+        data.at[0, "is_high_amount"] = is_high_amount
+
+    return data
+
+# Use demo or manual input
+if demo_input:
+    X_input = build_model_input(**demo_input)
+else:
+    X_input = build_model_input(amount, time, log_amount, is_high_amount)
+
+X_scaled = scaler.transform(X_input)
+fraud_prob = model.predict_proba(X_scaled)[0][1]
+
+# ===============================
+# DECISION OUTPUT
+# ===============================
+st.subheader("📊 Fraud Risk Assessment")
+
+if fraud_prob >= THRESHOLD:
+    st.error(f"""
+🟥 **HIGH FRAUD RISK**
+
+**Probability:** {fraud_prob:.2%}  
+**Action:** Block transaction & notify customer
+""")
+else:
+    st.success(f"""
+🟩 **LOW FRAUD RISK**
+
+**Probability:** {fraud_prob:.2%}  
+**Action:** Allow transaction
+""")
+
+# ===============================
+# FOOTER
+# ===============================
+st.caption("Model: Logistic Regression | Threshold tuned for business cost")
